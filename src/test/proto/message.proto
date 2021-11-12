@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package com.alibaba.otter.canal.protocol;
+
+option java_package = "com.alibaba.otter.canal.protocol.entity";
+option java_multiple_files = true;
+//option java_outer_classname = "MessageL";
+option optimize_for = SPEED;
+option cc_generic_services = true;
+
+//还原出的canal消息格式
+message Message{
+  int64 id = 1;
+  repeated CanalEntry.Entry entries = 2;
+  bool raw = 3;
+  repeated bytes rawEntries = 4;
+}
+
+message CanalEntry{
+  message Entry{
+    /**协议头部信息 **/
+    optional Header header = 1;
+
+    /** 需要序列化的类型为ROWDATA类型**/
+    oneof entryType_present{
+      EntryType entryType = 2;
+    }
+    /**传输的二进制组 **/
+    bytes storeValue = 3;
+  }
+}
+
+/** 事件类型**/
+enum EventType{
+  EVENTTYPECOMPATIBLEPROTO2 = 0;
+  INSERT 		= 		1;
+  UPDATE 		= 		2;
+  DELETE 		= 		3;
+  CREATE		= 		4;
+  ALTER		= 		5;
+  ERASE		= 		6;
+  QUERY		=		7;
+  TRUNCATE	=		8;
+  RENAME 		= 		9;
+  /**CREATE INDEX**/
+  CINDEX		= 		10;
+  DINDEX 		= 		11;
+  GTID        =       12;
+  /** XA **/
+  XACOMMIT    =       13;
+  XAROLLBACK  =		14;
+  /** MASTER HEARTBEAT **/
+  MHEARTBEAT  =       15;
+}
+
+/**打散后的事件类型，主要用于标识事务的开始，变更数据，结束**/
+enum EntryType{
+  ENTRYTYPECOMPATIBLEPROTO2 = 0;
+  TRANSACTIONBEGIN 		=		1;
+  ROWDATA					=		2;
+  TRANSACTIONEND			=		3;
+  /** 心跳类型，内部使用，外部暂不可见，可忽略 **/
+  HEARTBEAT				=		4;
+  GTIDLOG                 =       5;
+}
+
+
+
+/**每个字段的数据结构**/
+message Column {
+  /**字段下标 UPDATE DELETE **/
+  int32 index = 1;
+
+  /**字段java类型 **/
+  int32 sqlType = 2;
+  /**字段名称 **/
+  string name = 3;
+}
+
+
+/**数据包格式**/
+message RowData{
+
+  /**字段信息，增量数据(修改后，新增后)**/
+  repeated Column afterColumns = 2;
+
+  /**字段信息，增量数据(修改前，删除前)**/
+  /**changelog insert,delete,**/
+  repeated Column beforeColumns = 1;
+
+  /**预留拓展 **/
+  repeated Pair pros = 3;
+}
+
+/**message row每行数据变更的数据结构 **/
+message RowChange{
+
+  /**tableId,由数据库产生 **/
+  int64 tableId = 1;
+  oneof eventType_present {
+    EventType eventType = 2;
+    
+  }
+
+}
+
+/**预留嵌套消息拓展 **/
+message Pair{
+  string key = 1;
+  string value = 2;
+}
+message Header{
+  oneof version_present {
+    int32 version = 1;
+  }
+
+  /**binlog/redolog文件名 **/
+  string logFileName = 2;
+
+  /**binlog/redolog文件的偏移位置 **/
+  int64 logFileOffset = 3;
+  /**服务端serverId **/
+  int64 serverId = 4;
+  /**变更数据的执行编码 **/
+  int64 serverenCode = 5;
+  /**变更数据的执行时间**/
+  int64 executeTime = 6;
+  /**变更数据的来源 **/
+  oneof sourceType_present{
+    Type sourceType = 7;
+  }
+
+  /**变更数据的schemaname **/
+  string schemaName = 8;
+
+  /**变更数据的tablename **/
+  string tableName = 9;
+  /**传输数据的事件长度**/
+  int64 eventLength = 10;
+  /**数据变更类型 **/
+  oneof eventType_present{
+    EventType eventType = 11;
+  }
+
+  /**预留扩展**/
+  repeated Pair					props				= 12;
+
+  /**当前事务的gitd**/
+  string                 gtid                = 13;
+
+  /**上游需要监听的数据源类型 **/
+ enum Type{
+   TYPECOMPATIBLEPROTO2 = 0;
+   ORACLE = 1;
+   MYSQL = 2;
+   PGSQL = 3;
+ }
+}

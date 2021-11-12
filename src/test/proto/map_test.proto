@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package com.apache.flink;
+option java_package = "org.apache.flink";
+//option java_outer_classname = "TestSimpleString";
+option java_multiple_files = true;
+
+
+message MapTest{
+ optional string test_string = 1;
+ map<string,string> map = 2;
+}
